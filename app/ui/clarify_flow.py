@@ -1,4 +1,4 @@
-﻿"""Phase 4 clarify-once session logic."""
+"""Phase 4 clarify-once session logic."""
 
 from __future__ import annotations
 import json
@@ -50,13 +50,48 @@ class ClarifySession:
         return None
         
     def learn(self, query: str, answer: str) -> None:
-        # Simple extraction for demo: assuming last unknown entity
-        potential_entities = ["main gate", "lobby", "rear cam", "parking lot"]
+        """Learn and persist a spatial referent mapping permanently to data/knowledge_base.json."""
+        clean_query = query.strip()
+        clean_ans = answer.strip()
+        if not clean_query or not clean_ans:
+            return
+
+        # Check if query is directly an entity name
+        clean_entity = clean_query.lower()
+        potential_entities = ["main gate", "lobby", "rear cam", "parking lot", "rear exit", "back gate", "front gate", "entrance", "exit", "gate"]
+
+        matched = False
         for entity in potential_entities:
-            if re.search(r'\b' + re.escape(entity) + r'\b', query, re.IGNORECASE):
-                if entity.lower() not in self.kb:
-                    self.kb[entity.lower()] = answer
-                    self._save_kb()
+            if re.search(r'\b' + re.escape(entity) + r'\b', clean_query, re.IGNORECASE):
+                self.kb[entity.lower()] = clean_ans
+                matched = True
+
+        if not matched:
+            # Save whatever entity was passed
+            self.kb[clean_entity] = clean_ans
+
+        self._save_kb()
+
+    def learn_mapping(self, entity: str, target: str) -> None:
+        """Directly register a spatial referent to a camera or region."""
+        ent = entity.strip().lower()
+        tgt = target.strip()
+        if ent and tgt:
+            self.kb[ent] = tgt
+            self._save_kb()
+
+    def delete_mapping(self, entity: str) -> bool:
+        """Remove a learned entity from persistent memory."""
+        ent = entity.strip().lower()
+        if ent in self.kb:
+            del self.kb[ent]
+            self._save_kb()
+            return True
+        return False
+
+    def get_mappings(self) -> dict[str, str]:
+        """Return all persisted spatial referents."""
+        return dict(self.kb)
 
     def kill(self) -> None:
         self.is_running = False
@@ -64,4 +99,5 @@ class ClarifySession:
     def restart(self) -> None:
         self.is_running = True
         self.kb = self._load_kb()
+
 

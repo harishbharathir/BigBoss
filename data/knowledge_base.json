@@ -1,3 +1,5 @@
 {
-  "main gate": "camera 1 region"
+  "main gate": "Gate Cam",
+  "rear exit": "Rear Cam",
+  "gate": "Camera 1 (13258882-uhd_3840_2160_30fps)"
 }
