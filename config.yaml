@@ -1,0 +1,73 @@
+project:
+  name: multi-stream-video-intelligence
+  random_seed: 26
+
+paths:
+  model_cache: data/models
+  videos: data/videos
+  index: data/index
+  evidence: data/evidence
+  reports: reports
+
+runtime:
+  device: auto
+  precision: fp16
+  max_vram_gb: 4.5
+  cuda_memory_fraction: 0.85
+
+models:
+  detector: yolov8s-worldv2.pt
+  detector_weights: data/models/yolov8s-worldv2.pt
+  embedding: google/siglip-base-patch16-224
+  embedding_revision: main
+  embedding_cache: data/models/huggingface
+
+ingest:
+  idle_sample_fps: 1.0
+  active_sample_fps: 5.0
+  motion_hangover_seconds: 2.0
+  heartbeat_seconds: 4.0
+  motion_width: 320
+  motion_ratio_threshold: 0.012
+  motion_min_contour_area: 120.0
+  min_box_area: 400.0
+  crop_padding_fraction: 0.12
+  max_crops_per_track: 5
+  embedding_batch_size: 32
+  detector_image_size: 640
+  detector_confidence: 0.15
+  detector_iou: 0.5
+  generic_vocabulary:
+    - person
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+    - backpack
+    - handbag
+    - suitcase
+    - box
+    - dog
+
+baseline:
+  enabled: true
+  sample_fps: 1.0
+
+tracking:
+  tracker: bytetrack
+  track_buffer_seconds: 30.0
+  match_threshold: 0.8
+  track_high_threshold: 0.25
+  track_low_threshold: 0.1
+
+retrieval:
+  top_k: 50
+  verify_top_n: 15
+  verification_enabled: true
+  siglip_weight: 0.75
+  color_weight: 0.25
+  result_threshold: 0.22
+
+colors:
+  palette: [red, orange, yellow, green, blue, purple, pink, brown, black, white, gray, silver]

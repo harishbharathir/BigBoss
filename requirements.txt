@@ -1,0 +1,12 @@
+# Install the CUDA-enabled PyTorch build separately using the selector at
+# https://pytorch.org/get-started/locally/ (Windows, Pip, Python 3.11, CUDA).
+# CPU-only PyTorch is also supported.
+ultralytics>=8.3,<9
+transformers>=4.45,<6
+huggingface-hub>=0.26,<1
+opencv-python>=4.10,<5
+numpy>=1.26,<3
+PyYAML>=6,<7
+Pillow>=10,<12
+streamlit>=1.40,<2
+pytest>=8,<9

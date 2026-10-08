@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+data/videos/*
+data/models/*
+data/index/*
+data/evidence/*
+!data/videos/.gitkeep
+!data/models/.gitkeep
+!data/index/.gitkeep
+!data/evidence/.gitkeep
+reports/*.csv
+reports/*.md
+weights/
