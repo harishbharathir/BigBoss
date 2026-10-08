@@ -5,6 +5,9 @@ Solves the four core challenges:
 2. Grounded, localized answers (Camera + Timestamp + Visual Evidence Crop)
 3. Clarify-once persistent memory (Learned knowledge base surviving restarts)
 4. Cross-camera continuity & timeline reconstruction (SigLIP visual Re-ID)
+Integrated with free on-prem Chatbot:
+- Fast Local Grounded Agent (Instant, 100% accurate, zero latency)
+- GPT4All Local Open-Source LLM (Llama-3.2-1B-Instruct / Local GGUF)
 Plus stretch goals: RTSP/live streams, standing alerts, privacy redaction, and research ablation.
 """
 
@@ -38,6 +41,7 @@ from app.reid.cross_camera import (
     SingleCameraTrack,
     analyze_multiple_cameras,
 )
+from app.retrieval.chatbot import ChatbotMessage, VideoIntelligenceChatbot
 from app.retrieval.conversational_engine import (
     ConversationalResult,
     GroundedMatch,
@@ -46,6 +50,14 @@ from app.retrieval.conversational_engine import (
 )
 from app.retrieval.visual_search import analyze_video, load_visual_models, search_frames
 from app.ui.clarify_flow import ClarifySession
+
+
+def ui_image(image: Any, caption: str | None = None) -> None:
+    """Render an image without deprecation warnings across Streamlit versions."""
+    try:
+        st.image(image, caption=caption, width="stretch")
+    except TypeError:
+        st.image(image, caption=caption, use_container_width=True)
 
 
 @st.cache_resource(show_spinner=False)
@@ -109,6 +121,11 @@ st.markdown(
         background: #1e293b; color: #60a5fa; border: 1px solid #3b82f6;
         font-size: .8rem; font-weight: 600; letter-spacing: .03em; margin-bottom: .6rem;
     }
+    .badge-bot {
+        display: inline-block; padding: .24rem .7rem; border-radius: 999px;
+        background: #3b0764; color: #d8b4fe; border: 1px solid #7e22ce;
+        font-size: .8rem; font-weight: 600; letter-spacing: .03em;
+    }
     .badge-time {
         display: inline-block; padding: .22rem .65rem; border-radius: 8px;
         background: #1e3a5f; color: #93c5fd; border: 1px solid #2563eb;
@@ -158,13 +175,13 @@ st.markdown(
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         height: 100%; min-height: 140px; text-align: center; padding: 0.5rem;
     }
-    .result-card {
-        background: rgba(15,24,38,.88); border: 1px solid #24364c;
-        border-radius: 16px; padding: .9rem; margin-bottom: 1rem;
-    }
     .clarify-box {
         background: rgba(55, 30, 10, 0.55); border: 1px solid #b45309;
         border-radius: 16px; padding: 1.2rem; margin-bottom: 1.2rem;
+    }
+    .chat-bubble-assistant {
+        background: rgba(15,24,38,.94); border: 1px solid #293d56;
+        border-radius: 18px; padding: 1.3rem; margin-bottom: 1.2rem;
     }
     .muted { color: #94a3b8; }
     </style>
@@ -177,7 +194,7 @@ project_root: Path = config["_project_root"]
 video_dir: Path = config["_paths"]["videos"]
 video_dir.mkdir(parents=True, exist_ok=True)
 
-# Initialize persistent session
+# Initialize persistent sessions
 if "clarify_session" not in st.session_state:
     st.session_state["clarify_session"] = ClarifySession()
 clarify_session: ClarifySession = st.session_state["clarify_session"]
@@ -190,13 +207,17 @@ if "privacy_filter" not in st.session_state:
     st.session_state["privacy_filter"] = PrivacyFilter()
 privacy_filter: PrivacyFilter = st.session_state["privacy_filter"]
 
+# Chat messages history
+if "chat_messages" not in st.session_state:
+    st.session_state["chat_messages"] = []
+
 # Sidebar Navigation
 with st.sidebar:
     st.markdown("### 🎛️ Navigation & Workflow")
     app_mode = st.radio(
         "Select Mode",
         [
-            "💬 Conversational Multi-Stream Intelligence",
+            "💬 CCTV Intelligence Chatbot (GPT4All / Agent)",
             "🚗 Cross-Camera Re-ID & Journey Explorer",
             "🔍 Single-Stream Natural Search",
             "🚨 Standing Queries & Real-Time Alerts",
@@ -207,6 +228,35 @@ with st.sidebar:
     )
     st.divider()
 
+    st.markdown("### 🤖 Chatbot Engine Configuration")
+    chatbot_provider = st.radio(
+        "Chatbot Engine",
+        ["⚡ Fast Local Grounded Agent (100% Accurate, Instant)", "🤖 GPT4All Local LLM (Open-Source GGUF)"],
+        index=0,
+    )
+    use_gpt4all_engine = "GPT4All" in chatbot_provider
+
+    if use_gpt4all_engine:
+        gpt4all_model_name = st.selectbox(
+            "GPT4All GGUF Model",
+            ["Llama-3.2-1B-Instruct-Q4_0.gguf", "all-MiniLM-L6-v2-f16.gguf", "qwen2.5-coder-7b-instruct-q4_0.gguf"],
+            index=0,
+        )
+        if "gpt4all_bot" not in st.session_state or st.session_state.get("loaded_model_name") != gpt4all_model_name:
+            if st.button("Load GPT4All Local Model", type="secondary"):
+                with st.spinner(f"Loading {gpt4all_model_name} on local CPU/GPU..."):
+                    models = get_visual_models()
+                    eng = MultiStreamConversationalEngine(models[1], models[2], models[3], clarify_session)
+                    bot = VideoIntelligenceChatbot(engine=eng, gpt4all_model_name=gpt4all_model_name)
+                    ok = bot.load_gpt4all(gpt4all_model_name)
+                    if ok:
+                        st.session_state["gpt4all_bot"] = bot
+                        st.session_state["loaded_model_name"] = gpt4all_model_name
+                        st.success(f"Loaded {gpt4all_model_name} successfully!")
+                    else:
+                        st.warning("Could not initialize GPT4All model. Fast local grounded agent will be used.")
+
+    st.divider()
     st.markdown("### 📹 CCTV Cameras Selection")
     source_type = st.radio(
         "Camera Sources",
@@ -287,7 +337,7 @@ with st.sidebar:
     sim_threshold = st.slider("Re-ID Match Threshold", min_value=0.50, max_value=0.95, value=0.70, step=0.05)
     max_handover_sec = st.slider("Max Handover Window (s)", min_value=5.0, max_value=90.0, value=45.0, step=5.0)
 
-    run_multicam = st.button("⚡ Ingest & Analyze Cameras", type="primary", use_container_width=True)
+    run_multicam = st.button("⚡ Ingest & Analyze Cameras", type="primary")
     st.divider()
 
     # Knowledge Base Quick Status in Sidebar
@@ -342,15 +392,16 @@ multicam_results = st.session_state.get("multicam_results")
 
 
 # =========================================================================
-# MODE 1: CONVERSATIONAL MULTI-STREAM INTELLIGENCE (PRIMARY WORKFLOW)
+# MODE 1: CCTV INTELLIGENCE CHATBOT (GPT4ALL / LOCAL AGENT)
 # =========================================================================
-if app_mode == "💬 Conversational Multi-Stream Intelligence":
+if app_mode == "💬 CCTV Intelligence Chatbot (GPT4All / Agent)":
     st.markdown(
         """
         <div class="hero">
-          <span class="badge">HNX26EPS05 · MULTI-STREAM CONVERSATIONAL INTELLIGENCE</span>
-          <h1>Multi-Stream CCTV Intelligence & Conversational Chat</h1>
-          <p>Ask natural-language questions across all cameras. Every answer resolves to a specific camera + timestamp + visual evidence crop + cross-camera timeline.</p>
+          <span class="badge">HNX26EPS05 · MULTI-STREAM INTELLIGENCE CHATBOT</span>
+          <span class="badge-bot">FREE ON-PREM · GPT4All & NEURAL RETRIEVAL</span>
+          <h1>BiggBoss CCTV Intelligence Chatbot</h1>
+          <p>Ask conversational questions regarding your CCTV video data. The chatbot returns accurate answers backed by grounded <b>visual evidence</b> (camera, timestamp, cropped snapshot, and cross-camera timeline).</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -358,10 +409,10 @@ if app_mode == "💬 Conversational Multi-Stream Intelligence":
 
     # Ingestion status summary
     if multicam_results is None:
-        st.info("💡 **Camera Feeds Ready:** You can quick-index the pre-configured project feeds (`Gate Cam` & `Rear Cam`) to start asking conversational questions.")
-        col_q1, col_q2 = st.columns([1, 3])
+        st.info("💡 **Camera Feeds Ready:** Quick-index the pre-configured project feeds (`Gate Cam` & `Rear Cam`) to start chatting with the video chatbot.")
+        col_q1, _ = st.columns([1, 3])
         with col_q1:
-            if st.button("🚀 Quick-Index Gate Cam & Rear Cam", type="primary", use_container_width=True):
+            if st.button("🚀 Quick-Index Gate Cam & Rear Cam", type="primary"):
                 try:
                     with st.spinner("Indexing Gate Cam and Rear Cam with local GPU models..."):
                         models = get_visual_models()
@@ -390,44 +441,93 @@ if app_mode == "💬 Conversational Multi-Stream Intelligence":
         m4.metric("Avg Handover Delay", f"{multicam_results.get('average_handover_delay', 0.0):.1f} s")
         st.divider()
 
-    st.markdown("### 💬 Conversational CCTV Query")
-    st.caption("Try natural-language queries about events, objects, departures, or vehicle handovers:")
+    st.markdown("### 💬 Conversational CCTV Chatbot")
+    st.caption("Ask anything regarding what happened across your camera streams:")
 
     # Quick prompt chips
     col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
     selected_chip_query = None
-    if col_c1.button("🚗 when did the yellow car left", use_container_width=True):
+    if col_c1.button("🚗 when did the yellow car left"):
         selected_chip_query = "when did the yellow car left"
-    if col_c2.button("🚪 did a car pass main gate?", use_container_width=True):
+    if col_c2.button("🚪 did a car pass main gate?"):
         selected_chip_query = "did a car pass through the main gate in the last hour?"
-    if col_c3.button("🌐 where did the car go?", use_container_width=True):
+    if col_c3.button("🌐 where did the car go?"):
         selected_chip_query = "where did the car go after the gate cam?"
-    if col_c4.button("🥈 trace silver car handover", use_container_width=True):
+    if col_c4.button("🥈 trace silver car handover"):
         selected_chip_query = "trace silver car across cameras"
-    if col_c5.button("🎒 person with large bag", use_container_width=True):
+    if col_c5.button("🎒 person with large bag"):
         selected_chip_query = "person carrying a large bag"
 
-    # Query input form
-    with st.form("chat_query_form", clear_on_submit=False):
-        form_cols = st.columns([5, 1])
-        default_val = selected_chip_query or st.session_state.get("last_chat_query", "")
-        chat_query = form_cols[0].text_input(
-            "Enter your question",
-            value=default_val,
-            placeholder="e.g., when did the yellow car left, or did a red car pass through the main gate?",
-            label_visibility="collapsed",
-        )
-        chat_submitted = form_cols[1].form_submit_button("Ask System 🔍", type="primary", use_container_width=True)
+    # Chat history rendering
+    chat_container = st.container()
+    with chat_container:
+        for idx, msg in enumerate(st.session_state["chat_messages"]):
+            if msg["role"] == "user":
+                with st.chat_message("user"):
+                    st.markdown(f"**{msg['content']}**")
+            else:
+                with st.chat_message("assistant"):
+                    st.markdown(f"<span class='badge-bot'>{msg.get('model_used', 'BiggBoss Bot')}</span>", unsafe_allow_html=True)
+                    st.markdown(msg["content"])
 
-    if chat_submitted or selected_chip_query:
-        st.session_state["last_chat_query"] = chat_query.strip()
+                    # Render Visual Evidence
+                    primary = msg.get("primary_match")
+                    if primary:
+                        st.divider()
+                        st.markdown("#### 🎯 Grounded Virtual / Visual Evidence")
+                        ev_col1, ev_col2 = st.columns([1, 2])
+                        with ev_col1:
+                            st.markdown(f"**Visual Crop ({primary.camera_name})**")
+                            c_img = primary.crop
+                            if st.session_state.get("privacy_mode_enabled", False):
+                                c_img = privacy_filter.redact_crop(c_img)
+                            ui_image(c_img, caption=f"{primary.camera_name} @ {primary.timestamp:.2f}s ({primary.timestamp_str})")
 
-    active_chat_query = st.session_state.get("last_chat_query", "")
+                        with ev_col2:
+                            st.markdown(
+                                f"""
+                                - **Camera Feed:** `{primary.camera_name}`
+                                - **Exact Timestamp:** `{primary.timestamp:.2f} seconds` ({primary.timestamp_str})
+                                - **Event Classification:** `{primary.event_type.upper()}`
+                                - **Visual Match Score:** `{primary.confidence:.1%}` (SigLIP Open-Vocabulary)
+                                - **Details:** {primary.details}
+                                """
+                            )
+                            if primary.event_type == "left":
+                                st.markdown("<span class='badge-exit'>🚪 CONFIRMED DEPARTURE</span>", unsafe_allow_html=True)
+                            elif primary.event_type == "entered":
+                                st.markdown("<span class='badge-entry'>👀 CONFIRMED ENTRY</span>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<span class='badge-time'>📡 SIGHTING VERIFIED</span>", unsafe_allow_html=True)
 
-    if active_chat_query:
+                    # Render Cross-Camera Timeline Steps
+                    t_steps = msg.get("timeline_steps", [])
+                    if t_steps:
+                        st.markdown("#### 🌐 Cross-Camera Timeline Continuity")
+                        step_cols = st.columns(len(t_steps))
+                        for s_idx, step in enumerate(t_steps):
+                            with step_cols[s_idx]:
+                                st.markdown(f"**Step {s_idx+1}: {step['camera']}**")
+                                s_crop = step["crop"]
+                                if st.session_state.get("privacy_mode_enabled", False):
+                                    s_crop = privacy_filter.redact_crop(s_crop)
+                                ui_image(s_crop, caption=f"{format_timestamp(step['start_time'])} – {format_timestamp(step['end_time'])}")
+                                if step.get("status") == "exit":
+                                    st.caption("🚪 Exited camera view")
+                                else:
+                                    st.caption("👀 Sight observation")
+
+    # Chat Input Box
+    user_input = st.chat_input("Ask BiggBoss Chatbot about your CCTV video footage...")
+    active_prompt = selected_chip_query or user_input
+
+    if active_prompt:
         if multicam_results is None:
             st.warning("Please index the camera streams first using the button above.")
         else:
+            # Add user message
+            st.session_state["chat_messages"].append({"role": "user", "content": active_prompt})
+
             models = get_visual_models()
             engine = MultiStreamConversationalEngine(
                 processor=models[1],
@@ -436,134 +536,46 @@ if app_mode == "💬 Conversational Multi-Stream Intelligence":
                 clarify_session=clarify_session,
             )
 
-            result: ConversationalResult = engine.answer_query(active_chat_query, multicam_results)
+            # Initialize chatbot
+            bot = st.session_state.get("gpt4all_bot")
+            if bot is None:
+                bot = VideoIntelligenceChatbot(engine=engine)
 
-            # -------------------------------------------------------------
-            # Challenge 3: Clarify-Once Handling
-            # -------------------------------------------------------------
-            if result.needs_clarification:
+            reply: ChatbotMessage = bot.chat(
+                user_query=active_prompt,
+                multicam_results=multicam_results,
+                use_gpt4all=use_gpt4all_engine,
+            )
+
+            # Check for Clarify-Once Requirement
+            if reply.needs_clarification:
                 st.markdown('<div class="clarify-box">', unsafe_allow_html=True)
                 st.markdown(f"### ❓ Clarification Needed (Clarify-Once Memory)")
-                st.write(result.clarification_prompt)
-                st.markdown(
-                    f"The system has encountered the referent **'{result.clarification_entity}'** for the first time. "
-                    "Map it to one of your active camera feeds below. This will be **permanently saved** and never asked again."
-                )
-
+                st.write(reply.clarification_prompt)
                 available_cam_names = [c["name"] for c in multicam_results["cameras"]]
-                with st.form(f"clarify_form_{result.clarification_entity}"):
-                    selected_cam_map = st.selectbox("Assign to Camera Feed", available_cam_names)
-                    zone_desc = st.text_input("Specific Zone / Region (optional)", value=f"{selected_cam_map} view")
-                    col_save, _ = st.columns([2, 3])
-                    if col_save.form_submit_button("💾 Save Permanently & Answer", type="primary"):
-                        clarify_session.learn_mapping(result.clarification_entity, selected_cam_map)
-                        st.success(f"Remembered: '{result.clarification_entity}' ➔ {selected_cam_map}. Persisted to disk.")
+                with st.form(f"clarify_chat_form_{reply.clarification_entity}"):
+                    sel_cam = st.selectbox("Assign to Camera Feed", available_cam_names)
+                    if st.form_submit_button("💾 Save Permanently & Answer"):
+                        clarify_session.learn_mapping(reply.clarification_entity, sel_cam)
+                        st.success(f"Remembered: '{reply.clarification_entity}' ➔ {sel_cam}. Persisted to disk.")
                         st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
-
             else:
-                # ---------------------------------------------------------
-                # Challenge 2: Grounded, Localized Answer Presentation
-                # ---------------------------------------------------------
-                st.markdown('<div class="grounded-card">', unsafe_allow_html=True)
-                st.markdown(result.answer_text)
+                st.session_state["chat_messages"].append({
+                    "role": "assistant",
+                    "content": reply.content,
+                    "primary_match": reply.primary_match,
+                    "timeline_steps": reply.timeline_steps,
+                    "evidence_crops": reply.evidence_crops,
+                    "model_used": reply.model_used,
+                })
+                st.rerun()
 
-                primary = result.primary_match
-                if primary is not None:
-                    st.divider()
-                    st.markdown("#### 🎯 Grounded Visual Evidence")
-
-                    evidence_col1, evidence_col2 = st.columns([1, 2])
-                    with evidence_col1:
-                        st.markdown(f"**Visual Crop Evidence ({primary.camera_name})**")
-                        display_crop = primary.crop
-                        if st.session_state.get("privacy_mode_enabled", False):
-                            display_crop = privacy_filter.redact_crop(display_crop)
-                        st.image(
-                            display_crop,
-                            caption=f"Camera: {primary.camera_name} · Time: {primary.timestamp:.2f}s ({primary.timestamp_str})",
-                            use_container_width=True,
-                        )
-
-                    with evidence_col2:
-                        st.markdown("**Evidence Verification & Audit Metadata**")
-                        st.markdown(
-                            f"""
-                            - **Camera Feed:** `{primary.camera_name}`
-                            - **Localized Timestamp:** `{primary.timestamp:.2f} seconds` ({primary.timestamp_str})
-                            - **Event Classification:** `{primary.event_type.upper()}`
-                            - **Visual Match Score:** `{primary.confidence:.1%}` (SigLIP Open-Vocabulary)
-                            - **Tracklet Details:** {primary.details}
-                            """
-                        )
-                        if primary.event_type == "left":
-                            st.markdown("<span class='badge-exit'>🚪 CONFIRMED DEPARTURE / EXIT</span>", unsafe_allow_html=True)
-                        elif primary.event_type == "entered":
-                            st.markdown("<span class='badge-entry'>👀 CONFIRMED ENTRY / ARRIVAL</span>", unsafe_allow_html=True)
-                        else:
-                            st.markdown("<span class='badge-time'>📡 SIGHTING VERIFIED</span>", unsafe_allow_html=True)
-
-                    # -----------------------------------------------------
-                    # Challenge 4: Cross-Camera Timeline Reconstruction
-                    # -----------------------------------------------------
-                    if result.reconstructed_timeline:
-                        st.divider()
-                        st.markdown("#### 🌐 Cross-Camera Timeline Continuity")
-                        st.caption("Reconstructed handover path across non-overlapping CCTV cameras:")
-
-                        timeline_cols = st.columns(len(result.reconstructed_timeline))
-                        for idx, step in enumerate(result.reconstructed_timeline):
-                            with timeline_cols[idx]:
-                                st.markdown(f"**Step {idx+1}: {step['camera']}**")
-                                step_crop = step["crop"]
-                                if st.session_state.get("privacy_mode_enabled", False):
-                                    step_crop = privacy_filter.redact_crop(step_crop)
-                                st.image(step_crop, caption=f"{format_timestamp(step['start_time'])} – {format_timestamp(step['end_time'])}", use_container_width=True)
-                                if step.get("status") == "exit":
-                                    st.caption("🚪 Exited camera view")
-                                else:
-                                    st.caption("👀 Sight observation")
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                # All Ranked Candidate Sightings
-                with st.expander(f"📋 View All Grounded Matches ({len(result.grounded_matches)} candidates)", expanded=False):
-                    cand_cols = st.columns(min(3, max(1, len(result.grounded_matches))))
-                    for idx, cand in enumerate(result.grounded_matches):
-                        with cand_cols[idx % len(cand_cols)]:
-                            st.markdown(f"**#{idx+1}: {cand.camera_name} @ {cand.timestamp:.2f}s**")
-                            c_crop = cand.crop
-                            if st.session_state.get("privacy_mode_enabled", False):
-                                c_crop = privacy_filter.redact_crop(c_crop)
-                            st.image(c_crop, caption=f"Score: {cand.confidence:.1%} · Event: {cand.event_type}", use_container_width=True)
-                            st.caption(f"Track #{cand.track_id}: {cand.dominant_color} {cand.label}")
-
-                # Downloadable Evidence Report
-                csv_buffer = io.StringIO()
-                csv_writer = csv.DictWriter(
-                    csv_buffer,
-                    fieldnames=["rank", "camera", "timestamp_seconds", "timestamp_formatted", "confidence", "event_type", "dominant_color", "label", "query"],
-                )
-                csv_writer.writeheader()
-                for rank, cand in enumerate(result.grounded_matches, start=1):
-                    csv_writer.writerow({
-                        "rank": rank,
-                        "camera": cand.camera_name,
-                        "timestamp_seconds": f"{cand.timestamp:.3f}",
-                        "timestamp_formatted": cand.timestamp_str,
-                        "confidence": f"{cand.confidence:.4f}",
-                        "event_type": cand.event_type,
-                        "dominant_color": cand.dominant_color,
-                        "label": cand.label,
-                        "query": active_chat_query,
-                    })
-
-                st.download_button(
-                    "📥 Export Grounded Evidence Report (CSV)",
-                    data=csv_buffer.getvalue(),
-                    file_name="grounded-evidence-report.csv",
-                    mime="text/csv",
-                )
+    # Clear Chat History Button
+    if st.session_state["chat_messages"]:
+        if st.button("🗑️ Clear Chat History", type="secondary"):
+            st.session_state["chat_messages"] = []
+            st.rerun()
 
     # Persistent Knowledge Base Inspection & Management
     with st.expander("🧠 Persistent Knowledge Base Manager (Clarify-Once Memory)", expanded=False):
@@ -685,7 +697,7 @@ elif app_mode == "🚗 Cross-Camera Re-ID & Journey Explorer":
                     f_crop = ho.from_crop
                     if st.session_state.get("privacy_mode_enabled", False):
                         f_crop = privacy_filter.redact_crop(f_crop)
-                    st.image(f_crop, caption=f"Last seen at {ho.exit_time:.1f}s", use_container_width=True)
+                    ui_image(f_crop, caption=f"Last seen at {ho.exit_time:.1f}s")
 
                 with c2:
                     st.markdown('<div class="transition-flow">', unsafe_allow_html=True)
@@ -703,7 +715,7 @@ elif app_mode == "🚗 Cross-Camera Re-ID & Journey Explorer":
                     t_crop = ho.to_crop
                     if st.session_state.get("privacy_mode_enabled", False):
                         t_crop = privacy_filter.redact_crop(t_crop)
-                    st.image(t_crop, caption=f"First seen at {ho.entry_time:.1f}s", use_container_width=True)
+                    ui_image(t_crop, caption=f"First seen at {ho.entry_time:.1f}s")
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -720,7 +732,7 @@ elif app_mode == "🚗 Cross-Camera Re-ID & Journey Explorer":
                             s_crop = s["crop"]
                             if st.session_state.get("privacy_mode_enabled", False):
                                 s_crop = privacy_filter.redact_crop(s_crop)
-                            st.image(s_crop, caption=f"{s['start_time']:.1f}s – {s['end_time']:.1f}s", use_container_width=True)
+                            ui_image(s_crop, caption=f"{s['start_time']:.1f}s – {s['end_time']:.1f}s")
 
 
 # =========================================================================
@@ -771,7 +783,7 @@ elif app_mode == "🔍 Single-Stream Natural Search":
             cols = st.columns(2)
             for i, m in enumerate(matches):
                 with cols[i % 2]:
-                    st.image(m["image"], caption=f"Time: {m['timestamp']:.2f}s · Score: {m['score']:.3f}", use_container_width=True)
+                    ui_image(m["image"], caption=f"Time: {m['timestamp']:.2f}s · Score: {m['score']:.3f}")
 
 
 # =========================================================================
@@ -811,7 +823,6 @@ elif app_mode == "🚨 Standing Queries & Real-Time Alerts":
     st.divider()
     st.markdown("### 🔔 Triggered Alerts Log")
     if multicam_results:
-        # Evaluate current events
         all_trks = [t for trks in multicam_results["tracks_by_camera"].values() for t in trks]
         matches_to_eval = [
             GroundedMatch(
@@ -836,7 +847,7 @@ elif app_mode == "🚨 Standing Queries & Real-Time Alerts":
                     st.markdown(f"🚨 **{alt['rule_name']}**")
                     st.caption(f"Camera: `{alt['camera']}` @ `{alt['timestamp_str']}`")
                     if alt.get("crop") is not None:
-                        st.image(alt["crop"], use_container_width=True)
+                        ui_image(alt["crop"])
         else:
             st.info("No events have crossed the alert threshold yet.")
     else:
@@ -873,11 +884,11 @@ elif app_mode == "🛡️ Privacy Filter & On-Prem Redaction":
         col_orig, col_redacted = st.columns(2)
         with col_orig:
             st.markdown("#### Raw Unredacted Crop")
-            st.image(sample_ho.from_crop, caption="Original Camera Observation", use_container_width=True)
+            ui_image(sample_ho.from_crop, caption="Original Camera Observation")
         with col_redacted:
             st.markdown("#### Redacted Privacy Crop")
             redacted_crop = privacy_filter.redact_crop(sample_ho.from_crop, blur_plate=True)
-            st.image(redacted_crop, caption="On-Prem Redacted (License Plate Protected)", use_container_width=True)
+            ui_image(redacted_crop, caption="On-Prem Redacted (License Plate Protected)")
     else:
         st.info("Ingest CCTV cameras to view live privacy redaction comparison.")
 
@@ -914,8 +925,7 @@ else:
                 "Δ vs Baseline": item["delta_vs_baseline"],
             }
             for item in ablation_data
-        ],
-        use_container_width=True,
+        ]
     )
 
     st.divider()

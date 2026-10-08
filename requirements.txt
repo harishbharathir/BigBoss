@@ -10,3 +10,4 @@ PyYAML>=6,<7
 Pillow>=10,<12
 streamlit>=1.40,<2
 pytest>=8,<9
+gpt4all>=2.8.0

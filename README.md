@@ -26,12 +26,14 @@ Plug in multiple CCTV camera streams; the system continuously detects and indexe
 
 ---
 
-## 🚀 Stretch Goals Implemented
+## 🚀 Stretch Goals & AI Chatbot Implemented
 
+- **Free On-Prem Chatbot (GPT4All & Grounded Neural Agent)**: Conversational chat interface backed by local open-source LLMs (`gpt4all` with Llama-3.2-1B-Instruct / local GGUF) and deterministic zero-latency retrieval. Every answer is strictly grounded with verifiable **virtual/visual evidence** (camera, timestamp, cropped snapshot, and handover path).
 - **Live & Multi-Stream Ingestion**: Supports recorded multi-camera MP4/AVI clips, multi-file uploads, and live RTSP / YouTube Live stream extraction.
 - **Standing Queries & Real-Time Alerts**: Rule-based continuous monitoring (`AlertManager`) for departure detection, handover verification, and confidence threshold triggers.
 - **On-Premise Privacy Filter**: Gaussian blur redaction (`PrivacyFilter`) for license plates, faces, and sensitive zones running 100% on-premise with zero cloud data leaks.
 - **Research Contribution & Quantitative Ablation Study**: Side-by-side empirical comparison against standard CLIP/detector baselines demonstrating superior mAP (+3.2%), grounding accuracy (+18%), and query latency (2.08x faster).
+
 
 ---
 
