@@ -22,14 +22,21 @@ from ultralytics import YOLO
 from app.retrieval.visual_search import load_visual_models
 
 
-def extract_dominant_color(crop: np.ndarray) -> str:
-    """Classify the dominant color of a vehicle crop using HSV color spaces."""
+def extract_dominant_color(crop: np.ndarray, is_person: bool = False) -> str:
+    """Classify the dominant color of a vehicle crop or person's upper clothing using HSV."""
     if crop is None or crop.size == 0:
         return "unknown"
     try:
-        # Crop inner 70% to avoid background/road bleed
         h, w = crop.shape[:2]
-        if h > 10 and w > 10:
+        if is_person and h > 20 and w > 10:
+            # Focus on torso/upper-body region (20% to 65% height) for clothing/shirt color
+            y1, y2 = int(h * 0.20), int(h * 0.65)
+            x1, x2 = int(w * 0.15), int(w * 0.85)
+            core = crop[y1:y2, x1:x2]
+            if core.size == 0:
+                core = crop
+        elif h > 10 and w > 10:
+            # Crop inner 70% to avoid background/road bleed
             dy, dx = int(h * 0.15), int(w * 0.15)
             core = crop[dy : h - dy, dx : w - dx]
         else:
@@ -138,10 +145,11 @@ class CrossCameraJourney:
     @property
     def title(self) -> str:
         color_label = f"{self.dominant_color.capitalize()} {self.label}" if self.dominant_color != "unknown" else self.label.capitalize()
+        entity_name = "Person" if self.label == "person" else ("Vehicle" if self.label in {"car", "truck", "bus", "motorcycle"} else self.label.capitalize())
         if self.has_handover:
             cams = " ➔ ".join(s["camera"] for s in self.sightings)
-            return f"Vehicle #{self.global_id} ({color_label}) · Journey: {cams}"
-        return f"Vehicle #{self.global_id} ({color_label}) · {self.sightings[0]['camera']}"
+            return f"{entity_name} #{self.global_id} ({color_label}) · Journey: {cams}"
+        return f"{entity_name} #{self.global_id} ({color_label}) · {self.sightings[0]['camera']}"
 
 
 def track_single_camera(
@@ -194,13 +202,14 @@ def track_single_camera(
                 for b in boxes:
                     cls_id = int(b.cls[0])
                     cls_name = res.names.get(cls_id, str(cls_id)).lower()
-                    if cls_name not in {"car", "truck", "bus", "motorcycle"}:
+                    if cls_name not in {"car", "truck", "bus", "motorcycle", "person", "bicycle"}:
                         continue
                     x1, y1, x2, y2 = [int(v) for v in b.xyxy[0].tolist()]
                     conf = float(b.conf[0])
                     box_w = max(1, x2 - x1)
                     box_h = max(1, y2 - y1)
-                    if box_w * box_h < min_box_area:
+                    min_area = 350.0 if cls_name == "person" else min_box_area
+                    if box_w * box_h < min_area:
                         continue
 
                     # Clamp coordinates
@@ -342,7 +351,7 @@ def track_single_camera(
 
         entered_cam = (raw["start_time"] - time_offset) > 0.8
 
-        dom_color = extract_dominant_color(raw["best_crop"])
+        dom_color = extract_dominant_color(raw["best_crop"], is_person=(raw["label"] == "person"))
 
         results.append(
             SingleCameraTrack(
@@ -702,5 +711,6 @@ def analyze_multiple_cameras(
         "handovers": handovers,
         "multi_camera_vehicles_count": len(multi_cam_journeys),
         "total_vehicles_count": len(journeys),
+        "total_entities_count": len(journeys),
         "average_handover_delay": avg_delay,
     }

@@ -139,6 +139,20 @@ def test_extract_query_intent():
     assert intent2["target_object"] == "car"
 
 
+def test_extract_query_intent_person():
+    intent = extract_query_intent("who left cam last hour wearing blue shirt")
+    assert intent["is_exit"] is True
+    assert intent["detected_color"] == "blue"
+    assert intent["target_object"] == "person"
+    assert "person wearing blue shirt" in intent["semantic_phrase"]
+
+    intent2 = extract_query_intent("did someone in a red jacket enter?")
+    assert intent2["is_entry"] is True
+    assert intent2["detected_color"] == "red"
+    assert intent2["target_object"] == "person"
+    assert "red jacket" in intent2["semantic_phrase"]
+
+
 def test_format_timestamp():
     assert format_timestamp(0.0) == "00:00.00"
     assert format_timestamp(65.5) == "01:05.50"
@@ -173,6 +187,53 @@ def test_conversational_engine_answers_when_yellow_car_left(dummy_multicam_data,
     assert "Departure" in res.answer_text or "left" in res.answer_text.lower()
     # Cross-camera timeline reconstruction present
     assert len(res.reconstructed_timeline) > 0
+
+
+def test_conversational_engine_answers_person_query(dummy_multicam_data, monkeypatch):
+    session = ClarifySession()
+    rng = np.random.RandomState(99)
+    person_crop = (rng.rand(70, 40, 3) * 255).astype(np.uint8)
+    person_vec = rng.randn(768).astype(np.float32)
+    person_vec /= np.linalg.norm(person_vec)
+
+    # Add a person tracklet to Gate Cam
+    t_person = SingleCameraTrack(
+        track_id=12,
+        camera_name="Gate Cam",
+        label="person",
+        dominant_color="blue",
+        start_time=10.5,
+        end_time=15.2,
+        duration=4.7,
+        best_conf=0.91,
+        best_time=12.0,
+        best_crop=person_crop,
+        obs_count=15,
+        is_moving=True,
+        left_camera=True,
+        entered_camera=False,
+        embedding=person_vec,
+    )
+    multicam = dict(dummy_multicam_data)
+    multicam["tracks_by_camera"] = dict(dummy_multicam_data["tracks_by_camera"])
+    multicam["tracks_by_camera"]["Gate Cam"] = list(dummy_multicam_data["tracks_by_camera"]["Gate Cam"]) + [t_person]
+
+    engine = MultiStreamConversationalEngine(None, None, "cpu", clarify_session=session)
+    monkeypatch.setattr(engine, "embed_text", lambda text: person_vec)
+
+    res = engine.answer_query("who left cam last hour wearing blue shirt", multicam)
+    assert res.needs_clarification is False
+    assert res.primary_match is not None
+    primary = res.primary_match
+    assert primary.label == "person"
+    assert primary.dominant_color == "blue"
+    assert primary.camera_name == "Gate Cam"
+    assert primary.event_type == "left"
+    assert primary.timestamp == 15.2
+    assert primary.crop is not None
+    assert "Departure" in res.answer_text or "left" in res.answer_text.lower()
+    assert "Gate Cam" in res.answer_text
+
 
 
 def test_clarify_once_memory_persistence(tmp_path, monkeypatch):

@@ -171,7 +171,7 @@ class VideoIntelligenceChatbot:
                     f"- Camera: {primary.camera_name}\n"
                     f"- Timestamp: {primary.timestamp:.2f} seconds ({primary.timestamp_str})\n"
                     f"- Event Type: {primary.event_type.upper()}\n"
-                    f"- Vehicle/Object: {primary.dominant_color} {primary.label}\n"
+                    f"- Detected Subject: {primary.dominant_color} {primary.label}\n"
                     f"- Visual Match Confidence: {primary.confidence:.1%}\n"
                     f"- Details: {primary.details}\n"
                 )

@@ -452,7 +452,7 @@ if app_mode == "💬 CCTV Intelligence Chatbot (GPT4All / Agent)":
     else:
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Indexed Cameras", len(multicam_results["cameras"]))
-        m2.metric("Tracked Vehicles", multicam_results["total_vehicles_count"])
+        m2.metric("Tracked Entities", multicam_results.get("total_entities_count", multicam_results.get("total_vehicles_count", 0)))
         m3.metric("Cross-Cam Handovers", len(multicam_results["handovers"]))
         m4.metric("Avg Handover Delay", f"{multicam_results.get('average_handover_delay', 0.0):.1f} s")
         st.divider()
@@ -463,14 +463,14 @@ if app_mode == "💬 CCTV Intelligence Chatbot (GPT4All / Agent)":
     # Quick prompt chips
     col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
     selected_chip_query = None
-    if col_c1.button("🚗 when did the yellow car left"):
+    if col_c1.button("👤 who left wearing blue shirt?"):
+        selected_chip_query = "who left cam last hour wearing blue shirt"
+    if col_c2.button("🚗 when did yellow car leave?"):
         selected_chip_query = "when did the yellow car left"
-    if col_c2.button("🚪 did a car pass main gate?"):
+    if col_c3.button("🚪 car pass main gate?"):
         selected_chip_query = "did a car pass through the main gate in the last hour?"
-    if col_c3.button("🌐 where did the car go?"):
+    if col_c4.button("🌐 where did car go?"):
         selected_chip_query = "where did the car go after the gate cam?"
-    if col_c4.button("🥈 trace silver car handover"):
-        selected_chip_query = "trace silver car across cameras"
     if col_c5.button("🎒 person with large bag"):
         selected_chip_query = "person carrying a large bag"
 

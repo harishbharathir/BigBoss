@@ -133,3 +133,48 @@ def test_chatbot_clarify_once_trigger(dummy_multicam_data):
     assert reply.needs_clarification is True
     assert reply.clarification_entity == "lobby"
     assert "Which camera corresponds" in reply.clarification_prompt
+
+
+def test_chatbot_answers_person_query_with_evidence(dummy_multicam_data, monkeypatch):
+    session = ClarifySession()
+    rng = np.random.RandomState(42)
+    person_crop = (rng.rand(60, 40, 3) * 255).astype(np.uint8)
+    person_vec = rng.randn(768).astype(np.float32)
+    person_vec /= np.linalg.norm(person_vec)
+
+    t_person = SingleCameraTrack(
+        track_id=15,
+        camera_name="Gate Cam",
+        label="person",
+        dominant_color="blue",
+        start_time=12.0,
+        end_time=18.5,
+        duration=6.5,
+        best_conf=0.92,
+        best_time=14.0,
+        best_crop=person_crop,
+        obs_count=12,
+        is_moving=True,
+        left_camera=True,
+        entered_camera=False,
+        embedding=person_vec,
+    )
+    multicam = dict(dummy_multicam_data)
+    multicam["tracks_by_camera"] = dict(dummy_multicam_data["tracks_by_camera"])
+    multicam["tracks_by_camera"]["Gate Cam"] = list(dummy_multicam_data["tracks_by_camera"]["Gate Cam"]) + [t_person]
+
+    engine = MultiStreamConversationalEngine(None, None, "cpu", clarify_session=session)
+    monkeypatch.setattr(engine, "embed_text", lambda text: person_vec)
+
+    chatbot = VideoIntelligenceChatbot(engine=engine)
+    reply = chatbot.chat("who left cam last hour wearing blue shirt", multicam)
+
+    assert reply.role == "assistant"
+    assert reply.primary_match is not None
+    assert reply.primary_match.label == "person"
+    assert reply.primary_match.dominant_color == "blue"
+    assert reply.primary_match.camera_name == "Gate Cam"
+    assert len(reply.evidence_crops) > 0
+    assert reply.evidence_crops[0] is not None
+    assert "Gate Cam" in reply.content
+

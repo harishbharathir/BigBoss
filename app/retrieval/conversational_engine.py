@@ -102,7 +102,7 @@ def format_timestamp(seconds: float) -> str:
 
 
 def extract_query_intent(query: str) -> dict[str, Any]:
-    """Parse query for target entity, colors, spatial referents, and action."""
+    """Parse query for target entity, colors, clothing attributes, spatial referents, and action."""
     q_lower = query.lower().strip()
 
     # Detect action
@@ -119,15 +119,42 @@ def extract_query_intent(query: str) -> dict[str, Any]:
             detected_color = color
             break
 
-    # Detect vehicle/object classes
-    target_object = "vehicle"
-    for obj in ["car", "truck", "bus", "motorcycle", "sedan", "suv", "van", "person", "bag", "bicycle"]:
+    # Detect person and clothing indicators
+    person_patterns = [
+        r"\b(who|someone|somebody|pedestrian|man|woman|guy|boy|girl|individual|people|person|anyone|anybody)\b",
+        r"\b(wearing|dressed in|dressed|carrying|shirt|t-shirt|tshirt|jacket|hoodie|coat|pants|trousers|jeans|hat|cap)\b",
+    ]
+    is_person_query = any(re.search(pat, q_lower) for pat in person_patterns)
+
+    # Detect explicit vehicle classes
+    explicit_vehicle = None
+    for obj in ["car", "truck", "bus", "motorcycle", "sedan", "suv", "van", "bicycle"]:
         if re.search(r"\b" + re.escape(obj) + r"\b", q_lower):
-            target_object = obj
+            explicit_vehicle = obj
             break
 
+    if is_person_query and not explicit_vehicle:
+        target_object = "person"
+    elif explicit_vehicle:
+        target_object = explicit_vehicle
+    else:
+        target_object = "vehicle"
+
+    # Detect clothing item descriptor (e.g. "wearing blue shirt", "blue shirt")
+    clothing_match = re.search(r"\b(wearing|dressed in|in)\s+([a-z\s]+?\b(shirt|t-shirt|tshirt|jacket|hoodie|coat|pants|jeans|dress|hat|cap)\b)", q_lower)
+    clothing_item = clothing_match.group(2).strip() if clothing_match else None
+
     # Build semantic search phrase for vision-language embedder
-    if detected_color and target_object:
+    if target_object == "person":
+        if clothing_item:
+            semantic_phrase = f"person wearing {clothing_item}"
+        elif detected_color and any(w in q_lower for w in ["shirt", "jacket", "hoodie", "coat", "clothes", "dress"]):
+            semantic_phrase = f"person wearing {detected_color} shirt"
+        elif detected_color:
+            semantic_phrase = f"person wearing {detected_color}"
+        else:
+            semantic_phrase = "person walking"
+    elif detected_color and target_object:
         semantic_phrase = f"{detected_color} {target_object}"
     elif detected_color:
         semantic_phrase = f"{detected_color} vehicle"
@@ -142,6 +169,7 @@ def extract_query_intent(query: str) -> dict[str, Any]:
         "is_journey": is_journey,
         "detected_color": detected_color,
         "target_object": target_object,
+        "clothing_item": clothing_item,
         "semantic_phrase": semantic_phrase,
     }
 
@@ -289,12 +317,18 @@ class MultiStreamConversationalEngine:
         text_vec = self.embed_text(semantic_phrase)
 
         # Also embed auxiliary variants for robust matching
-        aux_text = []
-        if intent["detected_color"]:
+        aux_text = [clean_query]
+        if intent["target_object"] == "person":
+            if intent["detected_color"]:
+                aux_text.append(f"person wearing {intent['detected_color']}")
+                aux_text.append(f"a person in {intent['detected_color']} clothes")
+                aux_text.append(f"person wearing a {intent['detected_color']} shirt")
+            else:
+                aux_text.append("a person walking")
+                aux_text.append("pedestrian")
+        elif intent["detected_color"]:
             aux_text.append(f"a {intent['detected_color']} vehicle")
             aux_text.append(f"{intent['detected_color']} car")
-        else:
-            aux_text.append(clean_query)
 
         aux_vecs = [self.embed_text(p) for p in aux_text] if aux_text else []
 
@@ -325,7 +359,21 @@ class MultiStreamConversationalEngine:
                     elif intent["detected_color"] in trk.dominant_color:
                         color_bonus = 0.04
 
-                total_score = sim + color_bonus
+                # Category agreement adjustment
+                cat_bonus = 0.0
+                target_obj = intent["target_object"]
+                if target_obj == "person":
+                    if trk.label == "person":
+                        cat_bonus = 0.25
+                    else:
+                        cat_bonus = -0.35  # Discourage vehicle tracks when querying for a person
+                elif target_obj in {"vehicle", "car", "truck", "bus", "motorcycle"}:
+                    if trk.label == "person":
+                        cat_bonus = -0.35  # Discourage person tracks when querying for a vehicle
+                    elif trk.label in {"car", "truck", "bus", "motorcycle"}:
+                        cat_bonus = 0.05
+
+                total_score = sim + color_bonus + cat_bonus
 
                 # Check if query specifically asked about exit/left
                 if intent["is_exit"]:
@@ -395,11 +443,14 @@ class MultiStreamConversationalEngine:
         # Build grounded natural language response
         timeline_steps: list[dict[str, Any]] = []
 
+        icon = "🚶" if (primary.label == "person" or intent["target_object"] == "person") else "🚗"
+        subj_name = f"person ({intent['semantic_phrase']})" if primary.label == "person" else f"{intent['semantic_phrase']}"
+
         if intent["is_exit"]:
             time_display = f"**{primary.timestamp:.2f}s** ({primary.timestamp_str})"
             ans_lines = [
-                f"### 🚗 Grounded Evidence: {intent['semantic_phrase'].title()} Departure",
-                f"The **{intent['semantic_phrase']}** left **{primary.camera_name}** at {time_display}.",
+                f"### {icon} Grounded Evidence: {intent['semantic_phrase'].title()} Departure",
+                f"The **{subj_name}** left **{primary.camera_name}** at {time_display}.",
                 "",
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Departure Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
@@ -435,22 +486,24 @@ class MultiStreamConversationalEngine:
         elif intent["is_entry"]:
             time_display = f"**{primary.timestamp:.2f}s** ({primary.timestamp_str})"
             ans_lines = [
-                f"### 👀 Grounded Evidence: {intent['semantic_phrase'].title()} Arrival",
-                f"The **{intent['semantic_phrase']}** was first observed entering **{primary.camera_name}** at {time_display}.",
+                f"### {icon} Grounded Evidence: {intent['semantic_phrase'].title()} Arrival",
+                f"The **{subj_name}** was first observed entering **{primary.camera_name}** at {time_display}.",
                 "",
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Arrival Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
                 f"• **Visual Confidence**: `{max(0.0, primary.confidence):.1%}`",
+                f"• **Track ID**: #{primary.track_id} (`{primary.dominant_color} {primary.label}`)",
             ]
         else:
             time_display = f"**{primary.timestamp:.2f}s** ({primary.timestamp_str})"
             ans_lines = [
-                f"### 🎯 Grounded Evidence Found",
-                f"Found matching **{intent['semantic_phrase']}** on **{primary.camera_name}** at {time_display}.",
+                f"### {icon} Grounded Evidence Found",
+                f"Found matching **{subj_name}** on **{primary.camera_name}** at {time_display}.",
                 "",
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
                 f"• **Visual Match**: `{max(0.0, primary.confidence):.1%}`",
+                f"• **Track ID**: #{primary.track_id} (`{primary.dominant_color} {primary.label}`)",
                 f"• **Details**: {primary.details}",
             ]
             if primary.journey and primary.journey.has_handover:
