@@ -43,6 +43,31 @@ class ChatbotMessage:
     model_used: str = "Local Grounded Agent"
 
 
+import os
+
+
+class _suppress_c_stderr:
+    """Context manager to suppress low-level C runtime stderr (e.g. harmless CUDA probe messages)."""
+
+    def __enter__(self):
+        try:
+            self.null_fd = os.open(os.devnull, os.O_RDWR)
+            self.old_stderr_fd = os.dup(2)
+            os.dup2(self.null_fd, 2)
+        except Exception:
+            self.old_stderr_fd = None
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if getattr(self, "old_stderr_fd", None) is not None:
+            try:
+                os.dup2(self.old_stderr_fd, 2)
+                os.close(self.old_stderr_fd)
+                os.close(self.null_fd)
+            except Exception:
+                pass
+
+
 class VideoIntelligenceChatbot:
     """Conversational multi-stream CCTV assistant."""
 
@@ -76,25 +101,26 @@ class VideoIntelligenceChatbot:
         return self._gpt4all_instance is not None
 
     def load_gpt4all(self, model_name: str | None = None) -> bool:
-        """Load local GPT4All model into memory."""
+        """Load local GPT4All model into memory cleanly without verbose C++ probe warnings."""
         if not self._gpt4all_available:
             return False
         import gpt4all
 
         target_model = model_name or self.gpt4all_model_name
         try:
-            # Load model (will use local cache if exists, or download if allowed)
-            self._gpt4all_instance = gpt4all.GPT4All(
-                model_name=target_model,
-                device="cpu",
-                allow_download=True,
-            )
+            with _suppress_c_stderr():
+                self._gpt4all_instance = gpt4all.GPT4All(
+                    model_name=target_model,
+                    device="cpu",
+                    allow_download=True,
+                )
             self.gpt4all_model_name = target_model
             return True
         except Exception as exc:
             logger.warning(f"Could not load GPT4All model '{target_model}': {exc}")
             self._gpt4all_instance = None
             return False
+
 
     def chat(
         self,

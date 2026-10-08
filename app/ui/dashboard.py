@@ -237,14 +237,29 @@ with st.sidebar:
     use_gpt4all_engine = "GPT4All" in chatbot_provider
 
     if use_gpt4all_engine:
+        import os
         gpt4all_model_name = st.selectbox(
             "GPT4All GGUF Model",
             ["Llama-3.2-1B-Instruct-Q4_0.gguf", "all-MiniLM-L6-v2-f16.gguf", "qwen2.5-coder-7b-instruct-q4_0.gguf"],
             index=0,
         )
-        if "gpt4all_bot" not in st.session_state or st.session_state.get("loaded_model_name") != gpt4all_model_name:
-            if st.button("Load GPT4All Local Model", type="secondary"):
-                with st.spinner(f"Loading {gpt4all_model_name} on local CPU/GPU..."):
+        cache_file = Path(os.environ.get("USERPROFILE", "")) / ".cache" / "gpt4all" / gpt4all_model_name
+        is_cached = cache_file.exists()
+        if is_cached:
+            st.caption(f"💾 Cached locally on disk ({cache_file.stat().st_size / 1048576:.1f} MB)")
+
+        is_loaded = (
+            "gpt4all_bot" in st.session_state
+            and st.session_state.get("loaded_model_name") == gpt4all_model_name
+            and getattr(st.session_state.get("gpt4all_bot"), "is_gpt4all_loaded", False)
+        )
+
+        if is_loaded:
+            st.success(f"🟢 Active: {gpt4all_model_name} (Local CPU)")
+        else:
+            load_label = "⚡ Load Model from Local Cache" if is_cached else f"📥 Download & Load {gpt4all_model_name}"
+            if st.button(load_label, type="primary"):
+                with st.spinner(f"Initializing {gpt4all_model_name} on local CPU..."):
                     models = get_visual_models()
                     eng = MultiStreamConversationalEngine(models[1], models[2], models[3], clarify_session)
                     bot = VideoIntelligenceChatbot(engine=eng, gpt4all_model_name=gpt4all_model_name)
@@ -253,6 +268,7 @@ with st.sidebar:
                         st.session_state["gpt4all_bot"] = bot
                         st.session_state["loaded_model_name"] = gpt4all_model_name
                         st.success(f"Loaded {gpt4all_model_name} successfully!")
+                        st.rerun()
                     else:
                         st.warning("Could not initialize GPT4All model. Fast local grounded agent will be used.")
 
