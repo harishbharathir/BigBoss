@@ -76,6 +76,10 @@ class GroundedMatch:
     frame_image: np.ndarray | None = None
     journey: CrossCameraJourney | None = None
     handover: CrossCameraHandover | None = None
+    source_video: str = ""
+    clip_url: str = ""
+    start_pts: float = 0.0
+    end_pts: float = 0.0
 
 
 @dataclass
@@ -92,6 +96,7 @@ class ConversationalResult:
     clarification_prompt: str | None = None
     reconstructed_timeline: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    abstained: bool = False
 
 
 def format_timestamp(seconds: float) -> str:
@@ -119,12 +124,22 @@ def extract_query_intent(query: str) -> dict[str, Any]:
             detected_color = color
             break
 
+    # Detect bag, backpack, and luggage indicators
+    bag_patterns = [
+        r"\b(bag|backpack|handbag|suitcase|luggage|box|package)\b",
+    ]
+    is_bag_query = any(re.search(pat, q_lower) for pat in bag_patterns)
+    bag_item = None
+    if is_bag_query:
+        bm = re.search(r"\b(carrying|holding|with)\s+([a-z\s]+?\b(bag|backpack|handbag|suitcase|luggage|box|package)\b)", q_lower)
+        bag_item = bm.group(2).strip() if bm else "a bag"
+
     # Detect person and clothing indicators
     person_patterns = [
         r"\b(who|someone|somebody|pedestrian|man|woman|guy|boy|girl|individual|people|person|anyone|anybody)\b",
         r"\b(wearing|dressed in|dressed|carrying|shirt|t-shirt|tshirt|jacket|hoodie|coat|pants|trousers|jeans|hat|cap)\b",
     ]
-    is_person_query = any(re.search(pat, q_lower) for pat in person_patterns)
+    is_person_query = any(re.search(pat, q_lower) for pat in person_patterns) or is_bag_query
 
     # Detect explicit vehicle classes
     explicit_vehicle = None
@@ -146,12 +161,16 @@ def extract_query_intent(query: str) -> dict[str, Any]:
 
     # Build semantic search phrase for vision-language embedder
     if target_object == "person":
-        if clothing_item:
+        if is_bag_query and bag_item:
+            semantic_phrase = f"person carrying {bag_item}"
+        elif clothing_item:
             semantic_phrase = f"person wearing {clothing_item}"
         elif detected_color and any(w in q_lower for w in ["shirt", "jacket", "hoodie", "coat", "clothes", "dress"]):
             semantic_phrase = f"person wearing {detected_color} shirt"
         elif detected_color:
             semantic_phrase = f"person wearing {detected_color}"
+        elif is_bag_query:
+            semantic_phrase = "person carrying a bag"
         else:
             semantic_phrase = "person walking"
     elif detected_color and target_object:
@@ -170,6 +189,8 @@ def extract_query_intent(query: str) -> dict[str, Any]:
         "detected_color": detected_color,
         "target_object": target_object,
         "clothing_item": clothing_item,
+        "is_bag_query": is_bag_query,
+        "bag_item": bag_item,
         "semantic_phrase": semantic_phrase,
     }
 
@@ -238,15 +259,17 @@ class MultiStreamConversationalEngine:
 
     def __init__(
         self,
-        processor: AutoProcessor,
-        embedder: AutoModel,
-        device: str,
+        processor: AutoProcessor | None = None,
+        embedder: AutoModel | None = None,
+        device: str = "cpu",
         clarify_session: ClarifySession | None = None,
+        result_threshold: float = 0.22,
     ) -> None:
         self.processor = processor
         self.embedder = embedder
         self.device = device
         self.clarify_session = clarify_session or ClarifySession()
+        self.result_threshold = result_threshold
 
     def embed_text(self, text: str) -> np.ndarray:
         """Compute normalized SigLIP embedding for a text phrase."""
@@ -335,6 +358,12 @@ class MultiStreamConversationalEngine:
         # Candidate collection across cameras
         candidates: list[GroundedMatch] = []
 
+        # Build map of camera name to video source
+        cam_source_map: dict[str, str] = {}
+        for c_info in multicam_results.get("cameras", []):
+            if isinstance(c_info, dict) and "name" in c_info:
+                cam_source_map[c_info["name"]] = str(c_info.get("source", ""))
+
         cams_to_search = [resolved_camera] if resolved_camera and resolved_camera in tracks_by_camera else active_cams
 
         for cam_name in cams_to_search:
@@ -408,6 +437,12 @@ class MultiStreamConversationalEngine:
                     None,
                 )
 
+                src_video = cam_source_map.get(cam_name, "")
+                v_name = Path(src_video).name if src_video else ""
+                clip_start = max(0.0, timestamp - 1.0)
+                clip_end = timestamp + 2.0
+                clip_url = f"/media/videos/{v_name}#t={clip_start:.1f},{clip_end:.1f}" if v_name else ""
+
                 candidates.append(
                     GroundedMatch(
                         camera_name=cam_name,
@@ -425,19 +460,42 @@ class MultiStreamConversationalEngine:
                         ),
                         journey=matching_journey,
                         handover=matching_ho,
+                        source_video=src_video,
+                        clip_url=clip_url,
+                        start_pts=clip_start,
+                        end_pts=clip_end,
                     )
                 )
 
-        if not candidates:
+        # Sort candidates by visual confidence score descending
+        candidates.sort(key=lambda m: m.confidence, reverse=True)
+
+        # Threshold checking & strict abstention (Hard Constraint #4)
+        if not candidates or candidates[0].confidence < self.result_threshold:
+            best_cand_score = candidates[0].confidence if candidates else None
+            score_note = (
+                f" (best candidate similarity score {best_cand_score:.2f} was below verification threshold {self.result_threshold:.2f})"
+                if best_cand_score is not None
+                else ""
+            )
             return ConversationalResult(
                 query=clean_query,
                 resolved_query=self.clarify_session.resolve_query(clean_query),
-                answer_text=f"No matching visual events found for **{clean_query}** across the indexed cameras.",
+                answer_text=(
+                    f"No matching visual events found for **{clean_query}** across indexed cameras{score_note}. "
+                    f"The query abstained to prevent false-positive hallucination."
+                ),
                 grounded_matches=[],
+                primary_match=None,
+                abstained=True,
+                metadata={
+                    "abstained": True,
+                    "result_threshold": self.result_threshold,
+                    "best_score": best_cand_score,
+                    "intent": intent,
+                },
             )
 
-        # Sort candidates by visual confidence score descending
-        candidates.sort(key=lambda m: m.confidence, reverse=True)
         primary = candidates[0]
 
         # Build grounded natural language response
@@ -455,9 +513,12 @@ class MultiStreamConversationalEngine:
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Departure Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
                 f"• **Event Status**: `EXIT / LEFT CAMERA VIEW`",
-                f"• **Visual Confidence**: `{max(0.0, primary.confidence):.1%}` (SigLIP zero-shot grounding)",
+                f"• **Similarity Ranking Score**: `{primary.confidence:.2f}` (SigLIP cross-modal cosine)",
                 f"• **Track ID**: #{primary.track_id} (`{primary.dominant_color} {primary.label}`)",
             ]
+            if primary.clip_url:
+                v_label = Path(primary.source_video).name or primary.camera_name
+                ans_lines.append(f"• **Seekable Clip**: [{v_label}]({primary.clip_url}) ({primary.start_pts:.1f}s – {primary.end_pts:.1f}s)")
 
             # Cross-camera timeline reconstruction if available
             if primary.journey and primary.journey.has_handover:
@@ -480,7 +541,7 @@ class MultiStreamConversationalEngine:
 
                 if primary.handover:
                     ans_lines.append(
-                        f"\n⏱️ **Handover Transition:** Transited from `{primary.handover.from_camera}` to `{primary.handover.to_camera}` with a delay of **{primary.handover.delay_seconds:.1f}s** ({primary.handover.similarity:.1%} Re-ID match)."
+                        f"\n⏱️ **Handover Transition:** Transited from `{primary.handover.from_camera}` to `{primary.handover.to_camera}` with a delay of **{primary.handover.delay_seconds:.1f}s** (Re-ID cosine similarity: `{primary.handover.similarity:.2f}`)."
                     )
 
         elif intent["is_entry"]:
@@ -491,9 +552,12 @@ class MultiStreamConversationalEngine:
                 "",
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Arrival Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
-                f"• **Visual Confidence**: `{max(0.0, primary.confidence):.1%}`",
+                f"• **Similarity Ranking Score**: `{primary.confidence:.2f}` (SigLIP cross-modal cosine)",
                 f"• **Track ID**: #{primary.track_id} (`{primary.dominant_color} {primary.label}`)",
             ]
+            if primary.clip_url:
+                v_label = Path(primary.source_video).name or primary.camera_name
+                ans_lines.append(f"• **Seekable Clip**: [{v_label}]({primary.clip_url}) ({primary.start_pts:.1f}s – {primary.end_pts:.1f}s)")
         else:
             time_display = f"**{primary.timestamp:.2f}s** ({primary.timestamp_str})"
             ans_lines = [
@@ -502,10 +566,13 @@ class MultiStreamConversationalEngine:
                 "",
                 f"• **Camera Source**: `{primary.camera_name}`",
                 f"• **Timestamp**: `{primary.timestamp:.2f}s` ({primary.timestamp_str})",
-                f"• **Visual Match**: `{max(0.0, primary.confidence):.1%}`",
+                f"• **Similarity Ranking Score**: `{primary.confidence:.2f}` (SigLIP cross-modal cosine)",
                 f"• **Track ID**: #{primary.track_id} (`{primary.dominant_color} {primary.label}`)",
                 f"• **Details**: {primary.details}",
             ]
+            if primary.clip_url:
+                v_label = Path(primary.source_video).name or primary.camera_name
+                ans_lines.append(f"• **Seekable Clip**: [{v_label}]({primary.clip_url}) ({primary.start_pts:.1f}s – {primary.end_pts:.1f}s)")
             if primary.journey and primary.journey.has_handover:
                 cams = " ➔ ".join(s["camera"] for s in primary.journey.sightings)
                 ans_lines.append(f"• **Reconstructed Journey**: {cams}")
@@ -523,5 +590,6 @@ class MultiStreamConversationalEngine:
                 "intent": intent,
                 "resolved_camera": resolved_camera,
                 "total_candidates": len(candidates),
+                "abstained": False,
             },
         )

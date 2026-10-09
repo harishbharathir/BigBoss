@@ -65,7 +65,13 @@ pytest
 ```
 *All 26 unit tests covering ingestion, conversational query, Clarify-Once memory, Re-ID, RTSP, and alerts run and pass in ~9s.*
 
-### 3. Launch Dashboard
+### 3. Launch Enterprise HTML5 Web Dashboard (Recommended)
+```powershell
+python run_web.py
+```
+*Open http://localhost:8000 in your browser to access the modern command center UI.*
+
+Or run the Streamlit prototype:
 ```powershell
 streamlit run app/ui/dashboard.py
 ```

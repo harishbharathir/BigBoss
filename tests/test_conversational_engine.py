@@ -293,3 +293,60 @@ def test_privacy_filter_redacts_crop_and_regions():
     crop_redacted = pf.redact_crop(img, blur_plate=True)
     assert crop_redacted is not None
     assert crop_redacted.shape == img.shape
+
+
+def test_conversational_engine_abstains_on_hard_negative(dummy_multicam_data, monkeypatch):
+    """Verify Hard Constraint #4: engine abstains on unmatched queries below threshold."""
+    session = ClarifySession()
+    engine = MultiStreamConversationalEngine(None, None, "cpu", clarify_session=session, result_threshold=0.35)
+
+    # Return orthogonal/unrelated embedding (cosine sim ~ 0.0)
+    orthogonal_vec = np.zeros(768, dtype=np.float32)
+    orthogonal_vec[0] = 1.0
+    monkeypatch.setattr(engine, "embed_text", lambda text: orthogonal_vec)
+
+    # Query for absent entity
+    res = engine.answer_query("purple submarine underwater", dummy_multicam_data)
+    assert res.abstained is True
+    assert res.primary_match is None
+    assert len(res.grounded_matches) == 0
+    assert "abstained" in res.answer_text.lower() or "no matching visual events found" in res.answer_text.lower()
+
+
+def test_conversational_engine_preserves_provenance_and_seekable_clip(dummy_multicam_data, monkeypatch):
+    """Verify video provenance and seekable clip parameter extraction."""
+    session = ClarifySession()
+    engine = MultiStreamConversationalEngine(None, None, "cpu", clarify_session=session)
+    yellow_target = dummy_multicam_data["tracks_by_camera"]["Gate Cam"][0].embedding
+    monkeypatch.setattr(engine, "embed_text", lambda text: yellow_target)
+
+    res = engine.answer_query("when did the yellow car left", dummy_multicam_data)
+    assert res.primary_match is not None
+    primary = res.primary_match
+    assert primary.source_video == "gate_cam.mp4"
+    assert "/media/videos/gate_cam.mp4#t=" in primary.clip_url
+    assert primary.start_pts >= 0.0
+    assert primary.end_pts > primary.start_pts
+    assert "Seekable Clip" in res.answer_text
+
+
+def test_conversational_engine_sanitized_ranking_score(dummy_multicam_data, monkeypatch):
+    """Verify Hard Constraint #3: similarity is reported as ranking score, not percentage certainty."""
+    session = ClarifySession()
+    engine = MultiStreamConversationalEngine(None, None, "cpu", clarify_session=session)
+    yellow_target = dummy_multicam_data["tracks_by_camera"]["Gate Cam"][0].embedding
+    monkeypatch.setattr(engine, "embed_text", lambda text: yellow_target)
+
+    res = engine.answer_query("when did the yellow car left", dummy_multicam_data)
+    # Must report Similarity Ranking Score, not fake certainty percentage like "100.0%"
+    assert "Similarity Ranking Score" in res.answer_text
+    assert "% (SigLIP zero-shot grounding)" not in res.answer_text
+
+
+def test_extract_query_intent_carrying_bag():
+    """Verify person carrying bag query detection."""
+    intent = extract_query_intent("who was carrying a black backpack?")
+    assert intent["target_object"] == "person"
+    assert intent["is_bag_query"] is True
+    assert "bag" in intent["semantic_phrase"] or "backpack" in intent["semantic_phrase"]
+

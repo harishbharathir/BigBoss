@@ -1,0 +1,30 @@
+{
+  "status": "VALIDATED_EMPIRICAL_RUN",
+  "is_measured": true,
+  "device": "cpu",
+  "os": "Windows 10",
+  "total_queries_evaluated": 3,
+  "average_query_latency_ms": 130.37,
+  "min_latency_ms": 46.93,
+  "max_latency_ms": 296.24,
+  "grounding_accuracy_evaluated": 0.667,
+  "hard_negative_abstention_rate": 1.0,
+  "total_benchmark_time_seconds": 0.391,
+  "per_query_results": [
+    {
+      "query": "when did the yellow car left",
+      "status": "GROUNDED_MATCH",
+      "latency_ms": 296.24
+    },
+    {
+      "query": "trace silver car across cameras",
+      "status": "GROUNDED_MATCH",
+      "latency_ms": 46.93
+    },
+    {
+      "query": "purple submarine underwater",
+      "status": "ABSTAINED_AS_EXPECTED",
+      "latency_ms": 47.93
+    }
+  ]
+}

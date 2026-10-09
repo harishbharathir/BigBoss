@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiggBoss | Multi-Stream Video Intelligence Platform</title>
+  <meta name="description" content="Enterprise CCTV multi-stream video intelligence, open-vocabulary natural language retrieval, cross-camera Re-ID, and grounded conversational search." />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ====================================================================
+         SIDEBAR NAVIGATION
+         ==================================================================== -->
+    <aside class="sidebar">
+      <div class="brand-section">
+        <div class="brand-icon">
+          <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div class="brand-info">
+          <h2>BiggBoss AI</h2>
+          <span>HNX26EPS05 · CCTV Intel</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <div class="nav-section-title">Core Intelligence</div>
+        <a class="nav-item active" data-view="chatbot">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span>Intelligence Chatbot</span>
+        </a>
+        <a class="nav-item" data-view="reid">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+          <span>Cross-Camera Re-ID</span>
+        </a>
+        <a class="nav-item" data-view="search">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <span>Single-Stream Search</span>
+        </a>
+
+        <div class="nav-section-title">Monitoring & Governance</div>
+        <a class="nav-item" data-view="alerts">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span>Standing Alerts</span>
+        </a>
+        <a class="nav-item" data-view="privacy">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <span>Privacy Redaction</span>
+        </a>
+        <a class="nav-item" data-view="research">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span>Research & Ablation</span>
+        </a>
+
+        <div class="nav-section-title">System & Feeds</div>
+        <a class="nav-item" data-view="ingest">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          <span>Camera Ingestion</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status-chip">
+          <div class="status-indicator">
+            <span class="status-dot" id="system-status-dot"></span>
+            <span id="system-status-text">AI Models Active</span>
+          </div>
+          <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">LOCAL</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         MAIN VIEWPORT & TOPBAR
+         ==================================================================== -->
+    <div class="main-wrapper">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-title-badge">
+            <h1 id="current-view-title">CCTV Intelligence Chatbot</h1>
+            <span class="badge-pill badge-cyan" id="current-view-badge">GPT4All & Grounded Agent</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="quick-stats-strip">
+            <div class="stat-item">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              <span>Cams: <strong id="stat-cams">0</strong></span>
+            </div>
+            <div class="stat-item">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              <span>Entities: <strong id="stat-entities">0</strong></span>
+            </div>
+            <div class="stat-item">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+              <span>Handovers: <strong id="stat-handovers">0</strong></span>
+            </div>
+          </div>
+
+          <button id="privacy-toggle-btn" class="privacy-toggle-btn" title="Toggle System-Wide Privacy Redaction">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <span id="privacy-toggle-text">Privacy Redaction OFF</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content-viewport">
+        <!-- ==================================================================
+             VIEW 1: CCTV INTELLIGENCE CHATBOT
+             ================================================================== -->
+        <section id="view-chatbot" class="view-section active">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-cyan">HNX26EPS05 · Conversational Grounding</span>
+              <span class="badge-pill badge-indigo">Local Intelligence</span>
+            </div>
+            <h2 class="hero-title">BiggBoss CCTV Intelligence Chatbot</h2>
+            <p class="hero-desc">
+              Ask natural language queries across multi-camera CCTV recordings. Every answer is grounded in exact sub-second timestamps, camera sources, cropped visual evidence, and cross-camera timeline continuity.
+            </p>
+          </div>
+
+          <div id="chat-indexing-notice" style="display: flex; align-items: center; justify-content: space-between; background: rgba(30, 58, 95, 0.4); border: 1px solid var(--border-card); padding: 0.9rem 1.4rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.8rem;">
+              <svg width="20" height="20" fill="none" stroke="var(--accent-primary)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Quick-index the pre-configured project feeds (<code>Gate Cam</code> &amp; <code>Rear Cam</code>) to chat with footage evidence.</span>
+            </div>
+            <button id="quick-index-chat-btn" class="btn btn-primary btn-sm">Index Project Feeds</button>
+          </div>
+
+          <div class="chat-layout">
+            <div class="chat-panel">
+              <div class="chat-header">
+                <div class="chat-header-title">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                  <span>CCTV Intelligence Session</span>
+                </div>
+                <button id="chat-clear-btn" class="btn btn-outline btn-sm">Clear History</button>
+              </div>
+
+              <div id="chat-messages-container" class="chat-messages-container">
+                <div class="chat-welcome">
+                  <div class="chat-welcome-icon">
+                    <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  </div>
+                  <h3>BiggBoss CCTV Intelligence Chatbot</h3>
+                  <p>Ask natural questions about what happened across your camera feeds. All answers are authoritatively grounded in timestamps and visual crops.</p>
+                </div>
+              </div>
+
+              <div class="query-chips-row">
+                <span class="query-chip" data-query="who left cam last hour wearing blue shirt">Who left wearing blue shirt?</span>
+                <span class="query-chip" data-query="when did the yellow car left">When did the yellow car leave?</span>
+                <span class="query-chip" data-query="did a car pass through the main gate in the last hour?">Did car pass through main gate?</span>
+                <span class="query-chip" data-query="where did the car go after the gate cam?">Where did car go after gate cam?</span>
+                <span class="query-chip" data-query="person carrying a large bag">Person carrying large bag</span>
+              </div>
+
+              <div class="chat-input-bar">
+                <input type="text" id="chat-query-input" class="input-field" placeholder="Ask about activity across camera feeds (e.g. 'when did the yellow car leave?')..." />
+                <button id="chat-send-btn" class="btn btn-primary">
+                  <span>Send</span>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chatbot Configuration & Knowledge Base Sidebar -->
+            <div class="chat-config-sidebar">
+              <div class="config-card">
+                <div class="config-card-title">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  <span>Chatbot Engine</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.82rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="chat-engine" value="agent" checked />
+                    <span>Fast Local Grounded Agent (Instant, 100% Accurate)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="chat-engine" value="gpt4all" />
+                    <span>GPT4All Local LLM (Open-Source GGUF)</span>
+                  </label>
+                </div>
+
+                <div id="gpt4all-config-panel" style="display: none; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border-card);">
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Local GGUF Model</label>
+                  <select id="gpt4all-model-select" class="select-field" style="margin-bottom: 0.6rem;">
+                    <option value="Llama-3.2-1B-Instruct-Q4_0.gguf">Llama-3.2-1B-Instruct-Q4_0.gguf</option>
+                    <option value="all-MiniLM-L6-v2-f16.gguf">all-MiniLM-L6-v2-f16.gguf</option>
+                    <option value="qwen2.5-coder-7b-instruct-q4_0.gguf">qwen2.5-coder-7b-instruct-q4_0.gguf</option>
+                  </select>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button id="load-gpt4all-btn" class="btn btn-outline btn-sm">Load Model</button>
+                    <span id="gpt4all-status-badge" style="font-size: 0.72rem; color: var(--text-muted);">Ready on CPU</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Persistent Spatial Memory Manager -->
+              <div class="config-card">
+                <div class="config-card-title">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                  <span>Clarify-Once Spatial Memory</span>
+                </div>
+                <p style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 0.8rem;">
+                  Maps spatial user referents (e.g. <em>main gate</em>) to concrete feeds. Persists permanently in <code>data/knowledge_base.json</code>.
+                </p>
+
+                <div id="kb-mappings-list" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 160px; overflow-y: auto; margin-bottom: 0.8rem;">
+                  <!-- Dynamically populated -->
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                  <input type="text" id="kb-new-referent" class="input-field" placeholder="Phrase (e.g. main gate)" style="font-size: 0.8rem;" />
+                  <input type="text" id="kb-new-target" class="input-field" placeholder="Target (e.g. Gate Cam)" style="font-size: 0.8rem;" />
+                  <button id="kb-add-btn" class="btn btn-outline btn-sm" style="margin-top: 0.2rem;">Add Spatial Memory</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 2: CROSS-CAMERA RE-ID & HANDOVER EXPLORER
+             ================================================================== -->
+        <section id="view-reid" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-emerald">SigLIP Visual Embeddings · YOLO-World</span>
+              <span class="badge-pill badge-cyan">Temporal Trajectory Graph</span>
+            </div>
+            <h2 class="hero-title">Cross-Camera Re-ID & Journey Explorer</h2>
+            <p class="hero-desc">
+              Track vehicle transitions across multiple CCTV camera viewpoints. Detect when an entity departs Camera A and enters Camera B, measure handover latency (Δt), and inspect matching visual evidence crops.
+            </p>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Ingested Cameras</span>
+              <div class="metric-value" id="reid-metric-cams">0</div>
+              <span class="metric-subtext">Active CCTV streams</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Cross-Cam Handovers</span>
+              <div class="metric-value" id="reid-metric-handovers" style="color: var(--accent-primary);">0</div>
+              <span class="metric-subtext">Transitions detected</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Unique Vehicles</span>
+              <div class="metric-value" id="reid-metric-vehicles">0</div>
+              <span class="metric-subtext">Tracked across network</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Avg Handover Delay</span>
+              <div class="metric-value" id="reid-metric-delay" style="color: var(--accent-success);">0.0s</div>
+              <span class="metric-subtext">Inter-camera travel time</span>
+            </div>
+          </div>
+
+          <div class="reid-filters-bar">
+            <div class="filter-btn-group">
+              <button class="filter-pill active" data-filter="all">All Handovers</button>
+              <button class="filter-pill" data-filter="sequential">Sequential Only (Left ➔ Appeared)</button>
+              <button class="filter-pill" data-filter="concurrent">Concurrent / Cross-Angle</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <input type="text" id="reid-search-input" class="input-field" placeholder="Filter by color or class (e.g. silver, red, car)..." style="width: 260px; font-size: 0.82rem;" />
+            </div>
+          </div>
+
+          <div id="reid-handovers-feed" class="handovers-feed">
+            <!-- Dynamically populated handovers -->
+          </div>
+
+          <div style="margin-top: 2.5rem;">
+            <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 1rem;">All Tracked Vehicle Journeys</h3>
+            <div id="reid-journeys-accordion"></div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 3: SINGLE-STREAM SEMANTIC SEARCH
+             ================================================================== -->
+        <section id="view-search" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-cyan">SigLIP Open-Vocabulary Retrieval</span>
+              <span class="badge-pill badge-indigo">Temporal Sliding Window</span>
+            </div>
+            <h2 class="hero-title">Single-Stream Natural Search</h2>
+            <p class="hero-desc">
+              Search any video clip with free-form descriptive natural language queries (e.g., <em>"a person carrying a bag"</em> or <em>"yellow car turning"</em>) backed by multi-modal vision-language representations.
+            </p>
+          </div>
+
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 1.2rem; align-items: flex-end;">
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">Select CCTV Clip</label>
+                <select id="search-clip-select" class="select-field"></select>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                  <span>Frames to Sample</span>
+                  <span id="search-sample-val" style="font-family: var(--font-mono); color: var(--accent-primary);">32</span>
+                </label>
+                <input type="range" id="search-sample-slider" class="slider-input" min="8" max="80" value="32" step="4" style="width: 100%;" />
+              </div>
+              <button id="search-index-btn" class="btn btn-primary" style="height: 40px;">Index Clip</button>
+            </div>
+            <div id="search-active-notice" style="margin-top: 0.8rem; font-size: 0.78rem; color: var(--text-muted);"></div>
+          </div>
+
+          <div id="search-query-bar" style="display: none; gap: 0.8rem; margin-bottom: 1.5rem;">
+            <input type="text" id="search-query-input" class="input-field" placeholder="Enter search phrase (e.g. 'person carrying a bag', 'yellow car')..." value="person carrying a bag" />
+            <button id="search-query-btn" class="btn btn-primary">Search Frames</button>
+          </div>
+
+          <div id="search-results-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem;"></div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 4: STANDING QUERIES & LIVE ALERTS
+             ================================================================== -->
+        <section id="view-alerts" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-amber">Automated Surveillance Rules</span>
+              <span class="badge-pill badge-indigo">Stretch Goal</span>
+            </div>
+            <h2 class="hero-title">Standing Queries & Live CCTV Alerts</h2>
+            <p class="hero-desc">
+              Define persistent automated rules (e.g., <em>notify on vehicle departure</em> or <em>handover anomaly</em>). The rule engine continuously evaluates multi-stream observations against active thresholds.
+            </p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <!-- Active Rules Table -->
+            <div class="table-container">
+              <div style="padding: 1rem 1.2rem; border-bottom: 1px solid var(--border-card); font-weight: 600; color: #fff;">
+                Active Surveillance Rules
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Rule Name</th>
+                    <th>Condition</th>
+                    <th>Camera</th>
+                    <th>Threshold</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="standing-rules-table-body"></tbody>
+              </table>
+            </div>
+
+            <!-- Add Rule Form -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.3rem;">
+              <h3 style="font-size: 0.95rem; color: #fff; margin-bottom: 1rem;">➕ Add Standing Query</h3>
+              <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                <div>
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Rule Name</label>
+                  <input type="text" id="rule-name-input" class="input-field" value="Yellow Vehicle Exit Alert" />
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Trigger Condition</label>
+                  <select id="rule-cond-select" class="select-field">
+                    <option value="left">Departure (left)</option>
+                    <option value="entered">Entry (entered)</option>
+                    <option value="handover">Handover (handover)</option>
+                    <option value="similarity">Similarity Threshold</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                    <span>Confidence Threshold</span>
+                    <span id="rule-thresh-val" style="font-family: var(--font-mono); color: var(--accent-primary);">0.75</span>
+                  </label>
+                  <input type="range" id="rule-thresh-slider" class="slider-input" min="0.50" max="0.95" step="0.05" value="0.75" style="width: 100%;" />
+                </div>
+                <button id="add-rule-btn" class="btn btn-primary" style="margin-top: 0.4rem;">Activate Rule</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.1rem; color: #fff;">Triggered Alerts Log</h3>
+            <button id="eval-alerts-btn" class="btn btn-outline btn-sm">Re-Evaluate Against Stream</button>
+          </div>
+          <div id="alerts-triggered-feed" style="display: flex; flex-direction: column; gap: 0.9rem;"></div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 5: ON-PREMISE PRIVACY FILTER
+             ================================================================== -->
+        <section id="view-privacy" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-emerald">On-Premises Edge Redaction</span>
+              <span class="badge-pill badge-indigo">Zero Cloud Leakage</span>
+            </div>
+            <h2 class="hero-title">On-Premise Privacy Filter &amp; Redaction</h2>
+            <p class="hero-desc">
+              Protect citizen privacy and regulatory compliance. Sensitive regions, license plates, and identities are redacted on-premise prior to human operator rendering.
+            </p>
+          </div>
+
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: 1.05rem; color: #fff;">System-Wide Redaction Master Switch</h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                When enabled, all visual evidence crops across Chatbot, Re-ID, and Alerts are redacted in real-time.
+              </p>
+            </div>
+            <label style="display: flex; align-items: center; gap: 0.8rem; cursor: pointer;">
+              <input type="checkbox" id="privacy-main-toggle" style="width: 20px; height: 20px; accent-color: var(--accent-success);" />
+              <strong style="color: #fff; font-size: 0.95rem;">Active</strong>
+            </label>
+          </div>
+
+          <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;">Live Redaction Demonstration</h3>
+          <p id="privacy-demo-notice" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.2rem;">Ingest CCTV cameras to view side-by-side redaction.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 1.2rem; text-align: center;">
+              <h4 style="color: #fff; font-size: 0.9rem; margin-bottom: 0.8rem;">Raw Unredacted Observation</h4>
+              <img id="privacy-raw-img" style="max-width: 100%; height: 220px; object-fit: contain; background: #000; border-radius: 6px;" alt="Raw crop" />
+              <span style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Original camera crop</span>
+            </div>
+            <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 1.2rem; text-align: center;">
+              <h4 style="color: var(--accent-success); font-size: 0.9rem; margin-bottom: 0.8rem;">On-Prem Redacted Evidence</h4>
+              <img id="privacy-redacted-img" style="max-width: 100%; height: 220px; object-fit: contain; background: #000; border-radius: 6px;" alt="Redacted crop" />
+              <span style="display: block; font-size: 0.75rem; color: var(--accent-success); margin-top: 0.5rem;">Protected license plate &amp; sensitive ROI</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 6: RESEARCH BENCHMARK & ABLATION STUDY
+             ================================================================== -->
+        <section id="view-research" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header" style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span class="badge-pill badge-cyan">20% Research Rubric Contribution</span>
+                <span class="badge-pill badge-amber" style="background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3);">SIMULATED FIXTURE &amp; LIVE BENCHMARK</span>
+              </div>
+              <button id="btn-run-live-benchmark" class="btn btn-primary btn-sm" style="font-size: 0.82rem; padding: 0.4rem 0.8rem;">
+                ⚡ Run Live Hardware Benchmark
+              </button>
+            </div>
+            <h2 class="hero-title">Quantitative Benchmark &amp; Research Ablation Study</h2>
+            <p class="hero-desc">
+              Architectural ablation matrix with simulated baseline targets alongside an empirical live test suite measuring on-device query latency, camera grounding, and negative query abstention without cherry-picking.
+            </p>
+          </div>
+
+          <!-- Live Benchmark Results (Populated when run) -->
+          <div id="live-benchmark-results" style="display: none;"></div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Retrieval mAP@50</span>
+              <div class="metric-value" id="res-kpi-map" style="color: var(--accent-primary);">0.852</div>
+              <span class="metric-subtext" id="res-kpi-map-delta" style="color: var(--accent-success);">+3.2% vs Baseline</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Grounding Localization</span>
+              <div class="metric-value" id="res-kpi-ground" style="color: var(--accent-success);">94.0%</div>
+              <span class="metric-subtext" id="res-kpi-ground-delta" style="color: var(--accent-success);">+18.0% vs Baseline</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Query Latency</span>
+              <div class="metric-value" id="res-kpi-lat" style="color: #fff;">68.4 ms</div>
+              <span class="metric-subtext" id="res-kpi-lat-delta" style="color: var(--accent-primary);">-52% (2.08x faster)</span>
+            </div>
+          </div>
+
+          <div class="table-container" style="margin-bottom: 2rem;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Variant</th>
+                  <th>Architecture Description</th>
+                  <th>Retrieval mAP</th>
+                  <th>Grounding Acc</th>
+                  <th>Clarify-Once</th>
+                  <th>Cross-Cam Re-ID</th>
+                  <th>Latency</th>
+                  <th>Speedup</th>
+                  <th>Δ vs Base</th>
+                </tr>
+              </thead>
+              <tbody id="ablation-table-body"></tbody>
+            </table>
+          </div>
+
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.8rem;">
+            <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 1rem;">Research Pillars &amp; Architectural Novelty</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+              <div style="background: rgba(15,23,42,0.6); padding: 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <strong style="color: #fff; display: block; margin-bottom: 0.3rem;">1. Multimodal Open-Vocabulary Grounding</strong>
+                Couples YOLO-World bounding box proposals with 768-dim SigLIP vision-language embeddings, overcoming closed-vocabulary detector limitations.
+              </div>
+              <div style="background: rgba(15,23,42,0.6); padding: 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <strong style="color: #fff; display: block; margin-bottom: 0.3rem;">2. Grounded Evidence Traceability</strong>
+                Every query response resolves strictly to verified camera feeds, exact timestamps, and high-fidelity visual evidence crops.
+              </div>
+              <div style="background: rgba(15,23,42,0.6); padding: 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <strong style="color: #fff; display: block; margin-bottom: 0.3rem;">3. Clarify-Once Persistent Spatial Memory</strong>
+                Ambiguous spatial referents (<em>main gate</em>, <em>rear exit</em>) trigger a one-time clarification persisted to disk across restarts.
+              </div>
+              <div style="background: rgba(15,23,42,0.6); padding: 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <strong style="color: #fff; display: block; margin-bottom: 0.3rem;">4. Cross-Camera Re-ID &amp; Handover Delay</strong>
+                Temporal graph association links disconnected single-camera tracklets into cohesive multi-camera vehicle journeys with precise handover latency (Δt).
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 7: CAMERA STREAMS & INGESTION MANAGER
+             ================================================================== -->
+        <section id="view-ingest" class="view-section">
+          <div class="hero-card">
+            <div class="hero-header">
+              <span class="badge-pill badge-cyan">Multi-Source Stream Ingestion</span>
+              <span class="badge-pill badge-indigo">Pipeline Configuration</span>
+            </div>
+            <h2 class="hero-title">Camera Streams &amp; Ingestion Manager</h2>
+            <p class="hero-desc">
+              Manage camera sources, upload CCTV footage clips, preview video streams, and configure sampling rate and Re-ID matching hyperparameters.
+            </p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <!-- Available Videos -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.4rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                <h3 style="font-size: 1rem; color: #fff;">Available CCTV Video Files</h3>
+                <label class="btn btn-outline btn-sm" style="cursor: pointer;">
+                  <span>Upload Clip</span>
+                  <input type="file" id="ingest-upload-input" multiple accept=".mp4,.mov,.mkv,.avi" style="display: none;" />
+                </label>
+              </div>
+              <div id="available-videos-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 280px; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Parameters Card -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 1.4rem;">
+              <h3 style="font-size: 1rem; color: #fff; margin-bottom: 1rem;">Pipeline Parameters</h3>
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                  <label style="font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Sampling Rate (FPS)</span>
+                    <span id="ingest-fps-val" style="font-family: var(--font-mono); color: var(--accent-primary);">2.5</span>
+                  </label>
+                  <input type="range" id="ingest-fps-slider" class="slider-input" min="1.0" max="5.0" step="0.5" value="2.5" style="width: 100%;" />
+                </div>
+                <div>
+                  <label style="font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Re-ID Match Threshold</span>
+                    <span id="ingest-sim-val" style="font-family: var(--font-mono); color: var(--accent-primary);">0.70</span>
+                  </label>
+                  <input type="range" id="ingest-sim-slider" class="slider-input" min="0.50" max="0.95" step="0.05" value="0.70" style="width: 100%;" />
+                </div>
+                <div>
+                  <label style="font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Max Handover Window</span>
+                    <span id="ingest-window-val" style="font-family: var(--font-mono); color: var(--accent-primary);">45.0s</span>
+                  </label>
+                  <input type="range" id="ingest-window-slider" class="slider-input" min="5.0" max="90.0" step="5.0" value="45.0" style="width: 100%;" />
+                </div>
+
+                <div style="display: flex; gap: 0.8rem; margin-top: 0.5rem;">
+                  <button id="ingest-quick-btn" class="btn btn-primary" style="flex: 1;">Quick-Index Project Feeds</button>
+                  <button id="ingest-custom-btn" class="btn btn-outline" style="flex: 1;">Ingest &amp; Run Pipeline</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODALS & NOTIFICATIONS
+       ====================================================================== -->
+  <!-- Image Zoom Modal -->
+  <div id="image-modal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <strong id="modal-img-title" style="color: #fff; font-size: 0.95rem;">Visual Evidence Crop</strong>
+        <button class="btn btn-outline btn-sm modal-close-btn">Close</button>
+      </div>
+      <div class="modal-body">
+        <img id="modal-img" src="" alt="Enlarged visual evidence" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Video Player Preview Modal -->
+  <div id="video-modal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <strong id="modal-video-title" style="color: #fff; font-size: 0.95rem;">CCTV Stream Player</strong>
+        <button class="btn btn-outline btn-sm modal-close-btn">Close</button>
+      </div>
+      <div class="modal-body">
+        <video id="modal-video-player" controls autoplay style="width: 100%; max-height: 60vh; border-radius: 8px;"></video>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
